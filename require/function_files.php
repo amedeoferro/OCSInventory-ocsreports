@@ -178,29 +178,32 @@ function post_ocs_file_to_server($datastream, $url, $port) {
     $host = substr($url, 0, strpos($url, "/"));
     $uri = strstr($url, "/");
     $reqbody = $datastream;
-
     $contentlength = strlen($reqbody);
-    $reqheader = "POST $uri HTTP/1.1\r\n" .
-            "Host: $host\n" . "User-Agent: OCS_local_" . GUI_VER . "\r\n" .
-            "Content-type: application/x-compress\r\n" .
-            "Content-Length: $contentlength\r\n\r\n" .
-            "$reqbody\r\n";
+    $tuCurl = curl_init();
+    curl_setopt($tuCurl, CURLOPT_URL, $url);
+    curl_setopt($tuCurl, CURLOPT_PORT , $port);
+    curl_setopt($tuCurl, CURLOPT_USERAGENT,"User-Agent: OCS_local_" . GUI_VER);
+    curl_setopt($tuCurl, CURLOPT_VERBOSE, 0);
+    curl_setopt($tuCurl, CURLOPT_HEADER, 0);
+    curl_setopt($tuCurl, CURLOPT_POST, 1);
+    curl_setopt($tuCurl, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($tuCurl, CURLOPT_POSTFIELDS, $reqbody);
+    curl_setopt($tuCurl, CURLOPT_HTTPHEADER, array("Content-Type: application/x-compress", "Content-length: ".$contentlength));
+    $result = curl_exec($tuCurl);
+    $errno = curl_errno($tuCurl);
+    $info = curl_getinfo($tuCurl); 
 
-    $socket = @fsockopen($host, $port, $errno, $errstr);
-
-    if (!$socket) {
-        $result["errno"] = $errno;
-        $result["errstr"] = $errstr;
-        return $result;
+    curl_close($tuCurl);
+    if($errno){
+        $toReturn=array();
+        $toReturn["errno"] = $errno;
+        $toReturn["errstr"] = "Errore di comunicazione col server";
+        return $toReturn;
     }
-    fputs($socket, $reqheader);
-
-    while (!feof($socket)) {
-        $result[] = fgets($socket, 4096);
-    }
-
-    fclose($socket);
-    return $result;
+    $toReturn = array();
+    $toReturn[] = $info['http_code'];
+    $toReturn[] = $result;
+    return $toReturn;
 }
 
 ?>
